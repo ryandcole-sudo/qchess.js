@@ -1,6 +1,5 @@
 //Constructor for Qboard (Quantum chess board)
-function qBoard(){
-	
+function qBoard(){	
 	var qboard = new Object();
 	
 	var canvas = null;
@@ -16,6 +15,7 @@ function qBoard(){
 	var squareSelected = true;
 
 	var arrayPos = {
+		//Coordinate of each piece on the image
 		"K":[0,0,106],
 		"k":[0,106,106],
 		"Q":[106,0,106],
@@ -57,7 +57,10 @@ function qBoard(){
 	qboard.settings.theme = {
 		darkColor: "#096395",
 		lightColor:"#45c8f5",
-		selectColor:"#45af3d"
+		selectColor:"#45af3d",
+		highlightColor:"#45bf39",
+		highlightOpacity:0.4,
+		dotColor:"#af232c"
 	}
         function drawSquares(){
           for(var i=0;i<64;i++){
@@ -77,6 +80,15 @@ function qBoard(){
 	}
 	function drawPiece(piece,square){
 		drawOnSquare(square,2,piece);
+	}
+	function highlightSquare(square){
+		drawOnSquare(square,3);
+	}
+	function drawDot(square){
+		drawOnSquare(square,4);
+	}
+	function drawCross(square){
+		drawOnSquare(square,5);
 	}
         function drawOnSquare(square,val,info){
 	 var rank = rankAt(square);
@@ -103,8 +115,33 @@ function qBoard(){
 		case 2: //Draw Piece
 			 drawChessPiece(info,x,y,t);
 			 break;
-	 }
-        }
+		case 3: //Highlight square
+			 ctx.save();
+			 ctx.globalAlpha = qboard.settings.theme.highlightOpacity;
+			 ctx.fillStyle = qboard.settings.theme.highlightColor;
+			 ctx.fillRect(x,y,t,t);
+			 ctx.restore();
+			 break;
+			 
+		case 4: //Draw dot
+			 var r = t/8; //Radius
+			 var cx = x +t/2;
+			 var cy = y + t/2;
+			 ctx.beginPath();
+			 ctx.arc(cx,cy,r,0,Math.PI*2);
+			 ctx.fillStyle = qboard.settings.theme.dotColor;
+			 ctx.fill();
+			 break;  
+		case 5: //Draw cross 
+			 var rw = t/4;
+			 var rh = t/12;
+			 ctx.fillStyle = "red";
+			 ctx.fillRect(x + (t-rw)/2, y + (t-rh)/2,rw,rh);
+			 ctx.fillRect(x + (t-rh)/2, y + (t-rw)/2,rh,rw);
+			 break;
+
+								 }
+	 } 
          //Functions for calculating rank and file
 	 function rankAt(square){
 		 return Math.floor(square/8);
@@ -306,8 +343,9 @@ function qBoard(){
 	qboard.draw = function(){
 		if(!canvas || !ctx)
 			return true;
-		ctx.fillStyle = "red";
-		ctx.fillRect(0,0,500,500);
+		var w = ctx.canvas.height;
+		var h = ctx.canvas.width;
+		ctx.clearRect(0,0,w,h);
 		drawSquares();
 		return false;
 		//draw board
@@ -360,14 +398,14 @@ function qBoard(){
 	     function dragStart(e){
 		clicking = true;
 		e.stopPropagation();
-		setTimeout(clickEvent,300);
+		setTimeout("clickEvent(e)",300);
 		var touches = e.touches?true:false;
 	     }
-	     function dragMove(){
+	     function dragMove(e){
 		e.preventDefault();
 		e.stopPropagation();
 	     }
-	     function dragEnd(){
+	     function dragEnd(e){
 		     e.preventDefault();
 		     e.stopPropagation();
 	     }
@@ -382,4 +420,3 @@ function qChess(){
 	var qchess = new Object();
 	return qchess;
 }
-
