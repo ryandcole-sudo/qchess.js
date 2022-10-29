@@ -50,16 +50,16 @@ function qBoard(){
     }
 
     qboard.settings = new Object();
-    qboard.settings.orientation = "up"; //Possible values: left,right,up,down
+    qboard.settings.orientation = "down"; //Possible values: left,right,up,down
     qboard.settings.touchDrag = true;
     qboard.settings.mouseDrag = true;
     qboard.settings.theme = {
-    darkColor: "#096395",
-           lightColor:"#45c8f5",
-           selectColor:"#45af3d",
-           highlightColor:"#45bf39",
-           highlightOpacity:0.4,
-           dotColor:"#af232c"
+        darkColor: "#096395",
+        lightColor:"#45c8f5",
+        selectColor:"#45af3d",
+        highlightColor:"#45bf39",
+        highlightOpacity:0.4,
+        dotColor:"#af232c"
     }
     function drawSquares(){
         for(var i=0;i<64;i++){
@@ -234,6 +234,19 @@ function qBoard(){
         var rank = name.charCodeAt(1) - 49; // "1" to 0
         return squareAt(rank,file); 
     }
+
+    function orient(square){
+        switch(qboard.settings.orientation){
+            case "up":
+                return 0;
+            case "left":
+                return square+Math.pow(-1,square%2); //ok
+            case "right":
+                return square +(((Math.floor((square+3)/2))%2 )*2 +1)*Math.pow(-1,Math.floor(square/2));  
+            case "down":
+                return (e%2)*Math.pow(-1,Math.floor(e/2))*2;
+          }
+    }
     function loadImage(){
         image = new Image();
         image.src = qboard.imageFile;
@@ -244,7 +257,7 @@ function qBoard(){
     function drawChessPiece(symbol,x,y,s){
         if(!!image && image.complete){
             var xp = arrayPos[symbol][0]
-                var yp = arrayPos[symbol][1];
+            var yp = arrayPos[symbol][1];
             var sp = arrayPos[symbol][2];
             ctx.drawImage(image,xp,yp,sp,sp,x,y,s,s);
 
@@ -291,7 +304,6 @@ function qBoard(){
             var t1 = sqN($move.charAt(3) + $move.charAt(4));
             var t2 = sqN($move.charAt(5) + $move.charAt(6));
             splitMove(s1,t1,t2);
-
         }
         if($move.indexOf("^") == 4){
             //Merge move
@@ -300,8 +312,6 @@ function qBoard(){
             var s2 = sqN($move.charAt(2) + $move.charAt(3));
             var t1 = sqN($move.charAt(5) + $move.charAt(6));
             mergeMove(s1,s2,t1);
-
-
         }
     }
     qboard.moves = function(moves){
@@ -375,6 +385,7 @@ function qBoard(){
     }
     function setEventListeners(){
         canvas.addEventListener("click",clickEvent);
+        window.addEventListener("keydown",kbdEvent);
         if(qboard.settings.touchDrag){
             canvas.addEventListener("touchstart",dragStart);
             canvas.addEventListener("touchmove",dragMove);
@@ -396,11 +407,37 @@ function qBoard(){
             qboard.draw();
             return false;
         }
+        function kbdEvent(e){
+            var kc = e.keyCode;
+            kc = 37 + orient(kc-37)
+
+            switch(kc){
+                case 38: //Up
+                    selectedSquare +=8;
+                    break;
+                case 37: //Left 
+                    selectedSquare -= 1;
+                    break;
+                case 39: //Right
+                    selectedSquare += 1;
+                    break;
+                case 40: //Down
+                    selectedSquare -= 8;
+                    break;
+                case 13: //Enter
+                    selectState.select(nSq(selectedSquare));
+                    break;
+                case 32: //Space
+                    selectState.select(nSq(selectedSquare));
+                    break;
+            }
+            selectedSquare = selectedSquare%64;
+            qboard.draw();
+        }
         var clicking = false;
         function dragStart(e){
             clicking = true;
             e.stopPropagation();
-            setTimeout("clickEvent(e)",300);
             var touches = e.touches?true:false;
         }
         function dragMove(e){
