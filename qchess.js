@@ -1,6 +1,6 @@
 //Constructor for Qboard (Quantum chess board)
 function qBoard(){  
-    var qboard = new Object();
+    var qboard = {};
 
     var canvas = null;
     var ctx = null;
@@ -28,31 +28,48 @@ function qBoard(){
         "r":[426,106,106],
         "P":[533,0,106],
         "p":[533,106,106]
-    }
+    };
 
     //Select event state
     var selectState = {
     square:"", //Selected square
-       previous:new Array(), //Array of previous squares
+       previous:[], //Array of previous squares
        select:function(square){ //Named square
            if(this.square != "")
-               this.previous.push(square);
+               this.previous.push(this.square);
            this.square = square;
            onselect(this);
+       },
+       previousSquare:function(){
+            var ret = this.previous.pop();
+            this.previous.push(ret);
+            return ret;
        }
 
-    }
+    };
+    //imove (Intermediate move) event state
+    var imoveState = {
+        fromSquare:"", //initially selected square
+        toSquare:"", //final selected square, different to the fisrt
+        previous:[], //Array of previous squares
+        move:function(from,to){
+        },
+        previousSquare:function(){ //Square selected prior to the imove
+        }
+
+    };
 
     qboard.imageFile = "img/chess-sprite.png";
 
     qboard.state ={
         position:new Array(64), //Classical board position state
-    }
+    };
 
-    qboard.settings = new Object();
-    qboard.settings.orientation = "down"; //Possible values: left,right,up,down
+    qboard.settings = {};
+    qboard.settings.orientation = "up"; //Possible values: left,right,up,down
     qboard.settings.touchDrag = true;
     qboard.settings.mouseDrag = true;
+    qboard.settings.keyboard  = true;
     qboard.settings.theme = {
         darkColor: "#096395",
         lightColor:"#45c8f5",
@@ -60,7 +77,7 @@ function qBoard(){
         highlightColor:"#45bf39",
         highlightOpacity:0.4,
         dotColor:"#af232c"
-    }
+    };
     function drawSquares(){
         for(var i=0;i<64;i++){
             drawSquare(i);
@@ -211,7 +228,6 @@ function qBoard(){
                 x = tx;
                 y = s - ty;
                 break;
-
         }
         var file = Math.floor(x*8/s);
         var rank = Math.floor(y*8/s);
@@ -238,13 +254,13 @@ function qBoard(){
     function orient(square){
         switch(qboard.settings.orientation){
             case "up":
-                return 0;
+                return square;
             case "left":
-                return square+Math.pow(-1,square%2); //ok
+                return square + Math.pow(-1,square%2); //ok
             case "right":
-                return square +(((Math.floor((square+3)/2))%2 )*2 +1)*Math.pow(-1,Math.floor(square/2));  
+                return square + (((Math.floor((square+3)/2))%2 )*2 +1)*Math.pow(-1,Math.floor(square/2));  
             case "down":
-                return (e%2)*Math.pow(-1,Math.floor(e/2))*2;
+                return square + (square%2)*Math.pow(-1,Math.floor(square/2))*2;
           }
     }
     function loadImage(){
@@ -252,15 +268,14 @@ function qBoard(){
         image.src = qboard.imageFile;
         image.onload = function(){  
             //here
-        }
+        };
     }
     function drawChessPiece(symbol,x,y,s){
         if(!!image && image.complete){
-            var xp = arrayPos[symbol][0]
+            var xp = arrayPos[symbol][0];
             var yp = arrayPos[symbol][1];
             var sp = arrayPos[symbol][2];
             ctx.drawImage(image,xp,yp,sp,sp,x,y,s,s);
-
         }   
     }   
     function move(source,target,path){
@@ -278,48 +293,48 @@ function qBoard(){
         qboard.state.position[target1] = piece;
         qboard.state.position[target2] = piece;
         qboard.state.position[source] = "";
-
     }
     function mergeMove(source1,source2,target,path1,path2){
         var p1 = qboard.state.position[source1];
         var p2 = qboard.state.position[source2];
-        if (p1 =! p2)
+        if (p1 != p2)
             return true; //Source are not the same piece type
         else
             qboard.state.position[target] = qboard.state.position[source1];
     }
     qboard.move = function($move){
         //Move in long algebraic notation, for example e2-e4 g1^f3h3 f3h3^g1
+        var s,t,s1,t1,s2,t2;
         if($move.indexOf("-") == 2){
             //Regular move
-            var s = sqN($move.charAt(0) + $move.charAt(1));
-            var t = sqN($move.charAt(3) + $move.charAt(4));
+             s = sqN($move.charAt(0) + $move.charAt(1));
+             t = sqN($move.charAt(3) + $move.charAt(4));
             move(s,t);
             return false;
 
         }
         if($move.indexOf("^") == 2){
             //Split move
-            var s1 = sqN($move.charAt(0) + $move.charAt(1));
-            var t1 = sqN($move.charAt(3) + $move.charAt(4));
-            var t2 = sqN($move.charAt(5) + $move.charAt(6));
+             s1 = sqN($move.charAt(0) + $move.charAt(1));
+             t1 = sqN($move.charAt(3) + $move.charAt(4));
+             t2 = sqN($move.charAt(5) + $move.charAt(6));
             splitMove(s1,t1,t2);
         }
         if($move.indexOf("^") == 4){
             //Merge move
             //Classical part    
-            var s1 = sqN($move.charAt(0) + $move.charAt(1));
-            var s2 = sqN($move.charAt(2) + $move.charAt(3));
-            var t1 = sqN($move.charAt(5) + $move.charAt(6));
+             s1 = sqN($move.charAt(0) + $move.charAt(1));
+             s2 = sqN($move.charAt(2) + $move.charAt(3));
+             t1 = sqN($move.charAt(5) + $move.charAt(6));
             mergeMove(s1,s2,t1);
         }
-    }
+    };
     qboard.moves = function(moves){
         var moveArray = moves.split(" ");
         for(var i=0;i<moveArray.length;i++){
             qboard.move(moveArray[i]);
         }
-    }
+    };
     qboard.setUp = function(fen){
         //Set up board from fen position, first part only
         var pieces = "rnbkqpRNBKQP";
@@ -340,7 +355,7 @@ function qBoard(){
             qboard.state.position[squareAt(7-r,idx)] = c;
             idx++;
         }
-    }
+    };
     qboard.on = function(event,func){
         //event handler
         if(typeof func !== "function")
@@ -349,9 +364,13 @@ function qBoard(){
             case "select":
                 onselect = func;
                 break;
+            case "imove": //Intermidiate move
+                onimove = func;
+                break;
+
         }
 
-    }
+    };
     qboard.draw = function(){
         if(!canvas || !ctx)
             return true;
@@ -361,7 +380,7 @@ function qBoard(){
         drawSquares();
         return false;
         //draw board
-    }
+    };
     qboard.renderOn = function($canvas){
         //Set canvas on which to render board   
         loadImage();
@@ -382,10 +401,11 @@ function qBoard(){
 
         setEventListeners();
         return false;
-    }
+    };
     function setEventListeners(){
         canvas.addEventListener("click",clickEvent);
-        window.addEventListener("keydown",kbdEvent);
+        if(qboard.settings.keyboard)
+            window.addEventListener("keydown",kbdEvent);
         if(qboard.settings.touchDrag){
             canvas.addEventListener("touchstart",dragStart);
             canvas.addEventListener("touchmove",dragMove);
@@ -409,7 +429,7 @@ function qBoard(){
         }
         function kbdEvent(e){
             var kc = e.keyCode;
-            kc = 37 + orient(kc-37)
+            kc = 37 + orient(kc-37); //For different board orientations
 
             switch(kc){
                 case 38: //Up
@@ -449,13 +469,18 @@ function qBoard(){
             e.stopPropagation();
         }
     }
-    var onselect = function(state){} //Set by event handler 
+
+    //These functions are set by event handlers
+    var onselect = function(state){};
+    var onimove  = function(state){};
+    var onmove   = function(state){};
+    var onsplit  = function(state){};
+    var onmerge  = function(state){};
 
     return qboard;  
 }
-
 //Constructor for Qchess (Quantum chess logic)
 function qChess(){
-    var qchess = new Object();
+    var qchess = {};
     return qchess;
 }
