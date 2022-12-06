@@ -32,31 +32,88 @@ function qBoard(){
 
     //Select event state
     var selectState = {
-    square:"", //Selected square
-       previous:[], //Array of previous squares
-       select:function(square){ //Named square
-           if(this.square != "")
-               this.previous.push(this.square);
-           this.square = square;
-           onselect(this);
-       },
-       previousSquare:function(){
-            var ret = this.previous.pop();
-            this.previous.push(ret);
-            return ret;
-       }
-
-    };
-    //imove (Intermediate move) event state
-    var imoveState = {
-        fromSquare:"", //initially selected square
-        toSquare:"", //final selected square, different to the fisrt
+        currentState:0,
+        square:"", //Selected square
         previous:[], //Array of previous squares
-        move:function(from,to){
-        },
-        previousSquare:function(){ //Square selected prior to the imove
-        }
+        select:function(square){ //Named square
+            var selectedSquareOccupied = qboard.squareOccupied(selectedSquare);
+            this.square = nSq(selectedSquare); 
 
+            var squareDiff = this.square != this.previousSquare(); //Different or first select
+
+            var pvs1 = this.previousSquare();
+            var pvs2 = this.previousSquare(2);
+
+            var cs = this.square;
+
+            switch(this.currentState){
+                case 0: //Unselected state
+                    if(selectedSquareOccupied){
+                        this.currentState = 1; //select square
+                        squareSelected = true;
+                    }
+                    onselect(this);
+                    break;
+                case 1: //Selected state
+                    this.currentState = 0;
+                    if(squareDiff){ //Clicks a different square
+                        moveState.move(pvs1+"-"+cs);
+                        this.currentState = 0;
+                        squareSelected = false;
+                    }else{ //Same square was selected
+                        this.currentState = 2; // Quantum select state
+                    }
+                    break;
+                case 2: //Quantum select state
+                    if(squareDiff){
+                        this.currentState = 3; //Quantum move ready state
+                    }else{
+                        this.currentState = 0; //Unselect state
+                        squareSelected = false;
+                    }
+                    break;
+                case 3: //Quantum move ready state
+                    if(squareDiff){
+                        moveState.move(pvs2+"^"+pvs1+cs);
+                        this.currentState = 0; 
+                        squareSelected = false;
+                    }else{
+                      this.currentState = 4; //Merge move ready state
+                    }
+                    break;
+                case 4: //Merge move ready state
+                 if(squareDiff){
+                    moveState.move(pvs2+pvs1+"^"+cs);
+                    this.currentState = 0;
+                 }else{
+                    this.currentState = 0;
+                 }
+                 squareSelected = false;
+            }
+            if(squareSelected)
+                this.previous.push(this.square);
+            return false;//DEBUG; TODO: remove
+            
+       },
+       previousSquare:function(n){
+            //Returns the previous nth square,if n is 0 current square, if no n, the previous square
+            if(!n)
+                n = 0;
+            var p = this.previous;
+            var square = p[p.length-n-1]; 
+            return square;
+       }
+    };
+
+    var moveState = {
+        to:"",
+        previous:[], //Array of previous squares
+        move:function(move){
+            qboard.move(move);
+            moveType = 0;
+            this.previous.push(move);
+        },
+        type:"move", //values move,split,merge
     };
 
     qboard.imageFile = "img/chess-sprite.png";
@@ -315,9 +372,9 @@ function qBoard(){
         }
         if($move.indexOf("^") == 2){
             //Split move
-             s1 = sqN($move.charAt(0) + $move.charAt(1));
-             t1 = sqN($move.charAt(3) + $move.charAt(4));
-             t2 = sqN($move.charAt(5) + $move.charAt(6));
+            s1 = sqN($move.charAt(0) + $move.charAt(1));
+            t1 = sqN($move.charAt(3) + $move.charAt(4));
+            t2 = sqN($move.charAt(5) + $move.charAt(6));
             splitMove(s1,t1,t2);
         }
         if($move.indexOf("^") == 4){
@@ -356,6 +413,16 @@ function qBoard(){
             idx++;
         }
     };
+
+    qboard.squareOccupied = function(square){ //Is the a piece at the square, by chance?
+        var hasPiece = !!(qboard.state.position[square]);
+        hasPiece &= qboard.state.position[square] != "";
+        return hasPiece;
+    };
+    qboard.squareNotOccupied = function(square){
+        return true; //TODO: add logic. Remember this is quantum mechanics a square can be both occupied and not
+    };
+
     qboard.on = function(event,func){
         //event handler
         if(typeof func !== "function")
@@ -367,7 +434,6 @@ function qBoard(){
             case "imove": //Intermidiate move
                 onimove = func;
                 break;
-
         }
 
     };
@@ -452,6 +518,7 @@ function qBoard(){
                     break;
             }
             selectedSquare = selectedSquare%64;
+            squareSelected = true;
             qboard.draw();
         }
         var clicking = false;
@@ -472,7 +539,6 @@ function qBoard(){
 
     //These functions are set by event handlers
     var onselect = function(state){};
-    var onimove  = function(state){};
     var onmove   = function(state){};
     var onsplit  = function(state){};
     var onmerge  = function(state){};
