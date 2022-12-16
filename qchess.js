@@ -7,9 +7,11 @@ function qBoard(){
     var image = null;
 
     //piece drag events
-    var drag = false;
-    var dragStart = null;
-    var dragEnd = null;
+    var dragging = false;
+    var dragStartSquare = 2;
+    var dragEndSquare = 2;
+
+    var dragged = false; //To prevent click after drag
 
     var selectedSquare = 2;
     var squareSelected = true;
@@ -36,7 +38,7 @@ function qBoard(){
         square:"", //Selected square
         previous:[], //Array of previous squares
         select:function(square){ //Named square
-            var selectedSquareOccupied = qboard.squareOccupied(selectedSquare);
+            var selectedSquareOccupied = squareOccupied(selectedSquare);
             this.square = nSq(selectedSquare); 
 
             var squareDiff = this.square != this.previousSquare(); //Different or first select
@@ -139,7 +141,8 @@ function qBoard(){
         for(var i=0;i<64;i++){
             drawSquare(i);
             var piece = qboard.state.position[i];
-            if(piece && piece != "")
+            var squareBeingDragged = dragging && (dragStartSquare == i);
+            if(piece && piece != "" && !squareBeingDragged)
                 drawPiece(piece,i);
         }
         if(squareSelected)
@@ -414,7 +417,7 @@ function qBoard(){
         }
     };
 
-    qboard.squareOccupied = function(square){ //Is the a piece at the square, by chance?
+    squareOccupied = function(square){ //Is the a piece at the square, by chance?
         var hasPiece = !!(qboard.state.position[square]);
         hasPiece &= qboard.state.position[square] != "";
         return hasPiece;
@@ -484,6 +487,10 @@ function qBoard(){
         }
         function clickEvent(e){ 
             e.preventDefault();
+            if(dragged){
+                dragged = false;
+                return;
+            }
             var offsetX = ctx.canvas.getBoundingClientRect().left;
             var offsetY = ctx.canvas.getBoundingClientRect().top;
             var x = e.clientX - offsetX;
@@ -521,17 +528,67 @@ function qBoard(){
             squareSelected = true;
             qboard.draw();
         }
-        var clicking = false;
         function dragStart(e){
-            clicking = true;
-            e.stopPropagation();
+            var offsetX = ctx.canvas.getBoundingClientRect().left;
+            var offsetY = ctx.canvas.getBoundingClientRect().top;
+            var x = e.clientX - offsetX;
+            var y = e.clientY - offsetY;
+
+            dragging = true;
+
+            dragStartSquare = screenPos(x,y);
             var touches = e.touches?true:false;
+            e.stopPropagation();
+            e.preventDefault();
         }
         function dragMove(e){
             e.preventDefault();
             e.stopPropagation();
+            var offsetX = ctx.canvas.getBoundingClientRect().left;
+            var offsetY = ctx.canvas.getBoundingClientRect().top;
+            var x = e.clientX - offsetX;
+            var y = e.clientY - offsetY;
+            if(dragging){
+                var s = Math.min(ctx.canvas.width,ctx.canvas.height)/8;
+
+                var piece = qboard.state.position[dragStartSquare];
+                x = x - s/2;
+                y = y - s/2;
+                qboard.draw();
+                if(piece && piece != "")
+                    drawChessPiece(piece,x,y,s);
+            }
         }
         function dragEnd(e){
+            var offsetX = ctx.canvas.getBoundingClientRect().left;
+            var offsetY = ctx.canvas.getBoundingClientRect().top;
+            var x = e.clientX - offsetX;
+            var y = e.clientY - offsetY;
+            dragEndSquare = screenPos(x,y);
+            if(dragging && dragStartSquare != dragEndSquare){
+                dragged = true;
+            }
+            dragging = false;
+
+            var ds = nSq(dragStartSquare);
+            var de = nSq(dragEndSquare);
+            var hp = squareOccupied(dragStartSquare);//squard occupied (has piece);
+            var  pvs = selectState.previousSquare();
+            if (ds != de && hp){
+                //simulate move event
+            }
+            if(dragged){
+                if(selectState.currentState == 0)
+                        moveState.move(ds+"-"+de);
+                if(selectState.currentState == 1)
+                    moveState.move(pvs+"^"+ds+de);
+                selectState.currentState = 0;
+                squareSelected = false;
+                //TODO: Add merge move if drag same piece type plus click "unoccupied" square
+            }
+            //TODO: Fix Bugs; dragging to the board edge causes sticking
+            qboard.draw();
+
             e.preventDefault();
             e.stopPropagation();
         }
