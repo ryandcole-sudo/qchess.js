@@ -16,6 +16,8 @@ function qBoard(){
     var selectedSquare = 2;
     var squareSelected = true;
 
+    var lastTouch;
+
     var arrayPos = {
         //Coordinate of each piece on the image
         "K":[0,0,106],
@@ -422,7 +424,7 @@ function qBoard(){
         hasPiece &= qboard.state.position[square] != "";
         return hasPiece;
     };
-    qboard.squareNotOccupied = function(square){
+    squareNotOccupied = function(square){
         return true; //TODO: add logic. Remember this is quantum mechanics a square can be both occupied and not
     };
 
@@ -441,6 +443,7 @@ function qBoard(){
 
     };
     qboard.draw = function(){
+
         if(!canvas || !ctx)
             return true;
         var w = ctx.canvas.height;
@@ -487,6 +490,7 @@ function qBoard(){
         }
         function clickEvent(e){ 
             e.preventDefault();
+            console.log("clicked...");
             if(dragged){
                 dragged = false;
                 return;
@@ -529,26 +533,40 @@ function qBoard(){
             qboard.draw();
         }
         function dragStart(e){
+            //e.stopPropagation();
+            //e.preventDefault();
+            //Why prevent default on mousedown/touchstart?
+            console.log("drag started");
+            var touches = e.touches?true:false;
+            if(touches){
+                e = e.touches[0];
+            }
             var offsetX = ctx.canvas.getBoundingClientRect().left;
             var offsetY = ctx.canvas.getBoundingClientRect().top;
             var x = e.clientX - offsetX;
             var y = e.clientY - offsetY;
 
             dragging = true;
+            if(touches){
+                lastTouch = e;
+            }
 
             dragStartSquare = screenPos(x,y);
-            var touches = e.touches?true:false;
-            e.stopPropagation();
-            e.preventDefault();
         }
         function dragMove(e){
             e.preventDefault();
             e.stopPropagation();
+            var touches = e.touches?true:false;
+            if(touches){
+                e = e.touches[0];
+                lastTouch = e;
+            }
             var offsetX = ctx.canvas.getBoundingClientRect().left;
             var offsetY = ctx.canvas.getBoundingClientRect().top;
             var x = e.clientX - offsetX;
             var y = e.clientY - offsetY;
             if(dragging){
+                console.log("A drag motion has occured");
                 var s = Math.min(ctx.canvas.width,ctx.canvas.height)/8;
 
                 var piece = qboard.state.position[dragStartSquare];
@@ -560,27 +578,36 @@ function qBoard(){
             }
         }
         function dragEnd(e){
+            console.log(e);//?
+            //e.preventDefault();
+            //e.stopPropagation();
+            var touches = e.touches?true:false;
+            if(touches && lastTouch){
+                e = lastTouch;
+            }
             var offsetX = ctx.canvas.getBoundingClientRect().left;
             var offsetY = ctx.canvas.getBoundingClientRect().top;
             var x = e.clientX - offsetX;
             var y = e.clientY - offsetY;
             dragEndSquare = screenPos(x,y);
-            if(dragging && dragStartSquare != dragEndSquare){
-                dragged = true;
+            dragged = false;
+            if(dragging && (dragStartSquare != dragEndSquare)){
+                dragged = true && (isNaN(dragStartSquare)||!isNaN(dragEndSquare));
             }
+            console.log("from :"+dragStartSquare+" to:"+dragEndSquare);
             dragging = false;
+            console.log("drag is "+dragged);
 
             var ds = nSq(dragStartSquare);
             var de = nSq(dragEndSquare);
             var hp = squareOccupied(dragStartSquare);//squard occupied (has piece);
+            var nohp = squareNotOccupied(dragEndSquare); //TODO:Check this
             var  pvs = selectState.previousSquare();
-            if (ds != de && hp){
-                //simulate move event
-            }
-            if(dragged){
-                if(selectState.currentState == 0)
+            if(dragged && ds != de){
+                console.log("was dragged");
+                if(selectState.currentState == 0 && hp)
                         moveState.move(ds+"-"+de);
-                if(selectState.currentState == 1)
+                if(selectState.currentState == 1 && nohp)
                     moveState.move(pvs+"^"+ds+de);
                 selectState.currentState = 0;
                 squareSelected = false;
@@ -589,8 +616,6 @@ function qBoard(){
             //TODO: Fix Bugs; dragging to the board edge causes sticking
             qboard.draw();
 
-            e.preventDefault();
-            e.stopPropagation();
         }
     }
 
