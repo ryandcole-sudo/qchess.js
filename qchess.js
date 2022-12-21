@@ -490,7 +490,6 @@ function qBoard(){
         }
         function clickEvent(e){ 
             e.preventDefault();
-            console.log("clicked...");
             if(dragged){
                 dragged = false;
                 return;
@@ -536,7 +535,6 @@ function qBoard(){
             //e.stopPropagation();
             //e.preventDefault();
             //Why prevent default on mousedown/touchstart?
-            console.log("drag started");
             var touches = e.touches?true:false;
             if(touches){
                 e = e.touches[0];
@@ -566,7 +564,6 @@ function qBoard(){
             var x = e.clientX - offsetX;
             var y = e.clientY - offsetY;
             if(dragging){
-                console.log("A drag motion has occured");
                 var s = Math.min(ctx.canvas.width,ctx.canvas.height)/8;
 
                 var piece = qboard.state.position[dragStartSquare];
@@ -578,7 +575,6 @@ function qBoard(){
             }
         }
         function dragEnd(e){
-            console.log(e);//?
             //e.preventDefault();
             //e.stopPropagation();
             var touches = e.touches?true:false;
@@ -594,9 +590,7 @@ function qBoard(){
             if(dragging && (dragStartSquare != dragEndSquare)){
                 dragged = true && (isNaN(dragStartSquare)||!isNaN(dragEndSquare));
             }
-            console.log("from :"+dragStartSquare+" to:"+dragEndSquare);
             dragging = false;
-            console.log("drag is "+dragged);
 
             var ds = nSq(dragStartSquare);
             var de = nSq(dragEndSquare);
@@ -604,7 +598,6 @@ function qBoard(){
             var nohp = squareNotOccupied(dragEndSquare); //TODO:Check this
             var  pvs = selectState.previousSquare();
             if(dragged && ds != de){
-                console.log("was dragged");
                 if(selectState.currentState == 0 && hp)
                         moveState.move(ds+"-"+de);
                 if(selectState.currentState == 1 && nohp)
