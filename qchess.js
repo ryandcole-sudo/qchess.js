@@ -62,7 +62,6 @@ function qBoard(){
                     this.currentState = 0;
                     if(squareDiff){ //Clicks a different square
                         moveState.move(pvs1+"-"+cs);
-                        this.currentState = 0;
                         squareSelected = false;
                     }else{ //Same square was selected
                         this.currentState = 2; // Quantum select state
@@ -96,8 +95,6 @@ function qBoard(){
             }
             if(squareSelected)
                 this.previous.push(this.square);
-            return false;//DEBUG; TODO: remove
-            
        },
        previousSquare:function(n){
             //Returns the previous nth square,if n is 0 current square, if no n, the previous square
@@ -124,6 +121,17 @@ function qBoard(){
 
     qboard.state ={
         position:new Array(64), //Classical board position state
+        quantum:{
+            //functions to change quantum state;
+            split:function(square1,square2){
+                
+            },
+
+            //functions to get quantum state;
+            getProb:function(square){
+                //Gets the probaility of a square existing.
+            }
+        },
     };
 
     qboard.settings = {};
@@ -142,10 +150,14 @@ function qBoard(){
     function drawSquares(){
         for(var i=0;i<64;i++){
             drawSquare(i);
+            var p = 1/Math.pow(2,Math.round(Math.random()*2));
             var piece = qboard.state.position[i];
             var squareBeingDragged = dragging && (dragStartSquare == i);
-            if(piece && piece != "" && !squareBeingDragged)
+            if(piece && piece != "" && !squareBeingDragged){
                 drawPiece(piece,i);
+                if(p != 1)
+                    drawProb(i,p);
+            }
         }
         if(squareSelected)
             selectSquare(selectedSquare);
@@ -167,6 +179,9 @@ function qBoard(){
     }
     function drawCross(square){
         drawOnSquare(square,5);
+    }
+    function drawProb(square,prob){
+        drawOnSquare(square,6,prob);
     }
     function drawOnSquare(square,val,info){
         var rank = rankAt(square);
@@ -220,6 +235,12 @@ function qBoard(){
                 ctx.fillStyle = "red";
                 ctx.fillRect(x + (t-rw)/2, y + (t-rh)/2,rw,rh);
                 ctx.fillRect(x + (t-rh)/2, y + (t-rw)/2,rh,rw);
+                break;
+            case 6: //Draw probability
+                var pw = t/12;
+                var prob = info;
+                ctx.fillStyle = "yellow";
+                ctx.fillRect(x + t - pw, y , t, t*prob);
                 break;
         }
     } 
@@ -330,6 +351,7 @@ function qBoard(){
         image.src = qboard.imageFile;
         image.onload = function(){  
             //here
+            qboard.draw();
         };
     }
     function drawChessPiece(symbol,x,y,s){
@@ -440,7 +462,6 @@ function qBoard(){
                 onimove = func;
                 break;
         }
-
     };
     qboard.draw = function(){
 
@@ -454,7 +475,7 @@ function qBoard(){
         //draw board
     };
     qboard.renderOn = function($canvas){
-        //Set canvas on which to render board   
+        //Set canvas on which to render board 
         loadImage();
         var type = typeof $canvas;
         if(type == "string"){
@@ -535,7 +556,7 @@ function qBoard(){
             //e.stopPropagation();
             //e.preventDefault();
             //Why prevent default on mousedown/touchstart?
-            var touches = e.touches?true:false;
+            var touches = e.type === "touchstart";
             if(touches){
                 e = e.touches[0];
             }
@@ -552,9 +573,9 @@ function qBoard(){
             dragStartSquare = screenPos(x,y);
         }
         function dragMove(e){
-            e.preventDefault();
+            e.preventDefault(); 
             e.stopPropagation();
-            var touches = e.touches?true:false;
+            var touches = e.type === "touchmove";
             if(touches){
                 e = e.touches[0];
                 lastTouch = e;
@@ -563,6 +584,14 @@ function qBoard(){
             var offsetY = ctx.canvas.getBoundingClientRect().top;
             var x = e.clientX - offsetX;
             var y = e.clientY - offsetY;
+
+            var dragSquare = screenPos(x+1,y+1);
+
+            if(e.buttons == 0){
+                dragging = false; //User has let go of the mouse
+                qboard.draw(); // Redraw the board
+            }
+
             if(dragging){
                 var s = Math.min(ctx.canvas.width,ctx.canvas.height)/8;
 
@@ -570,14 +599,15 @@ function qBoard(){
                 x = x - s/2;
                 y = y - s/2;
                 qboard.draw();
-                if(piece && piece != "")
+                if(piece && piece != ""){
                     drawChessPiece(piece,x,y,s);
+                }
             }
         }
         function dragEnd(e){
             //e.preventDefault();
             //e.stopPropagation();
-            var touches = e.touches?true:false;
+            var touches = e.type === "touchend";
             if(touches && lastTouch){
                 e = lastTouch;
             }
@@ -594,19 +624,18 @@ function qBoard(){
 
             var ds = nSq(dragStartSquare);
             var de = nSq(dragEndSquare);
-            var hp = squareOccupied(dragStartSquare);//squard occupied (has piece);
-            var nohp = squareNotOccupied(dragEndSquare); //TODO:Check this
+            var hp = squareOccupied(dragStartSquare);//square occupied (has piece);
+            var nohp = squareNotOccupied(dragEndSquare); 
             var  pvs = selectState.previousSquare();
             if(dragged && ds != de){
-                if(selectState.currentState == 0 && hp)
+                selectState.currentState = 0; //what
+                if(hp)
                         moveState.move(ds+"-"+de);
-                if(selectState.currentState == 1 && nohp)
-                    moveState.move(pvs+"^"+ds+de);
                 selectState.currentState = 0;
                 squareSelected = false;
                 //TODO: Add merge move if drag same piece type plus click "unoccupied" square
             }
-            //TODO: Fix Bugs; dragging to the board edge causes sticking
+            //TODO: When the user drags out of bounds, cancel drag event
             qboard.draw();
 
         }
