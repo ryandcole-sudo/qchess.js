@@ -56,7 +56,7 @@ function qBoard(){
                         this.currentState = 1; //select square
                         squareSelected = true;
                     }
-                    onselect(this);
+                    onselect(this); //Trigger select event
                     break;
                 case 1: //Selected state
                     this.currentState = 0;
@@ -107,14 +107,23 @@ function qBoard(){
     };
 
     var moveState = {
+        from:"",
         to:"",
         previous:[], //Array of previous squares
-        move:function(move){
-            qboard.move(move);
-            moveType = 0;
+
+        move:function(move){ //Make a move
+            this.type = getMoveType(move);
+            this.from = nSq(getMoveSource(move));
+            this.to = nSq(getMoveTarget(move));
             this.previous.push(move);
+            onmove(this); //Trigger onmove event
         },
-        type:"move", //values move,split,merge
+
+        getMove:function(){
+            //TODO: Consider what to do about other move types
+            return this.from + "-" + this.to;
+        },
+        type:"move", //values: move,split,merge
     };
 
     qboard.imageFile = "img/chess-sprite.png";
@@ -362,6 +371,58 @@ function qBoard(){
             ctx.drawImage(image,xp,yp,sp,sp,x,y,s,s);
         }   
     }   
+
+    //Determine whether move is regular move, split or merge move
+    function getMoveType(move){ //Assume correct format ^
+        if(move.indexOf("-") == 2){
+            return "move";
+        }else if(move.indexOf("^") == 2){
+            return "split";
+        }else if(move.indexOf("^") ==4){
+            return "merge";
+        }
+    }
+
+    //Get source square of move, return an array if there is mark than one source
+    function getMoveSource(move){
+        var moveType = getMoveType(move);
+
+        var  source = "";
+
+        switch(moveType){
+            case "move":
+            case "split":
+                source = sqN(move.charAt(0) + move.charAt(1));
+                break;
+            case "merge":
+                source = new Array(2); 
+                source[0] = sqN(move.charAt(0) + move.charAt(1));
+                source[1] = sqN(move.charAt(2) + move.charAt(3));
+                break;
+        }
+        return source;
+    }
+    function getMoveTarget(move){
+        var moveType = getMoveType(move);
+
+        var  target = "";
+
+        switch(moveType){
+            case "move":
+                target = sqN(move.charAt(3) + move.charAt(4));
+                break;
+            case "split":
+                target = new Array(2);
+                target[0] = sqN(move.charAt(3) + move.charAt(4));
+                target[1] = sqN(move.charAt(5) + move.charAt(6));
+                break;
+            case "merge":
+                target = sqN(move.charAt(5) + move.charAt(6));
+                break;
+        }
+        return target;
+    }
+
     function move(source,target,path){
         //Jump move from source to target has no path
         //for slide moves path is an array of squares
@@ -389,28 +450,31 @@ function qBoard(){
     qboard.move = function($move){
         //Move in long algebraic notation, for example e2-e4 g1^f3h3 f3h3^g1
         var s,t,s1,t1,s2,t2;
-        if($move.indexOf("-") == 2){
-            //Regular move
-             s = sqN($move.charAt(0) + $move.charAt(1));
-             t = sqN($move.charAt(3) + $move.charAt(4));
-            move(s,t);
-            return false;
+        var moveType = getMoveType($move);
 
-        }
-        if($move.indexOf("^") == 2){
-            //Split move
-            s1 = sqN($move.charAt(0) + $move.charAt(1));
-            t1 = sqN($move.charAt(3) + $move.charAt(4));
-            t2 = sqN($move.charAt(5) + $move.charAt(6));
-            splitMove(s1,t1,t2);
-        }
-        if($move.indexOf("^") == 4){
-            //Merge move
-            //Classical part    
-             s1 = sqN($move.charAt(0) + $move.charAt(1));
-             s2 = sqN($move.charAt(2) + $move.charAt(3));
-             t1 = sqN($move.charAt(5) + $move.charAt(6));
-            mergeMove(s1,s2,t1);
+        switch(moveType){
+            case "move":
+                //Regular move
+                s = getMoveSource($move);
+                t= getMoveTarget($move);
+                move(s,t);
+                break;
+
+            case "split":
+                //Split move
+                s1 = getMoveSource($move);
+                t1 = getMoveTarget($move)[0];
+                t2 = getMoveTarget($move)[1];
+                splitMove(s1,t1,t2);
+                break;
+            case "merge":
+                //Merge move
+                //Classical part    
+                s1 = getMoveSource($move)[0];
+                s2 = getMoveSource($move)[1];
+                t1 = getMoveTarget($move);
+                mergeMove(s1,s2,t1);
+            break;
         }
     };
     qboard.moves = function(moves){
@@ -460,6 +524,9 @@ function qBoard(){
                 break;
             case "imove": //Intermidiate move
                 onimove = func;
+                break;
+            case "move":
+                onmove = func;
                 break;
         }
     };
