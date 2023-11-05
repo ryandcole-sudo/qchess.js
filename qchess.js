@@ -143,6 +143,42 @@ function qBoard(){
         },
     };
 
+    function arrowInit(){
+        qboard.arrows = [];
+
+        qboard.arrows.add = function(start,end,color){
+            return this.push([start,end,color]) - 1;
+        };
+
+        qboard.arrows.remove = function(key){
+            if(typeof key != "number")
+                return;
+            if(key != -1)
+                delete this[key];
+        };
+        qboard.arrows.has = function(start,end){
+        //Returns index if exits, otherwise false
+        for(var key in qboard.arrows){
+                if(typeof key != "number")
+                    return;
+
+                var arrow = qboard.arrows[key];
+
+                if(start == arrow[0] || end == arrow[1]){
+                    return key;
+                }
+                
+        }
+        return false;
+        };
+        
+
+        qboard.arrows.removeAll = function(){
+            arrowInit();
+        };
+    }
+    arrowInit();
+
     qboard.settings = {};
     qboard.settings.orientation = "up"; //Possible values: left,right,up,down
     qboard.settings.touchDrag = true;
@@ -154,7 +190,11 @@ function qBoard(){
         selectColor:"#45af3d",
         highlightColor:"#45bf39",
         highlightOpacity:0.4,
-        dotColor:"#af232c"
+        dotColor:"#af232c",
+        arrowColor:"#512da8",
+        arrowWidth:12,
+        arrowOpacity:0.74,
+        arrowHeadSize:20
     };
     function drawSquares(){
         for(var i=0;i<64;i++){
@@ -168,6 +208,7 @@ function qBoard(){
                     drawProb(i,p);
             }
         }
+        drawArrows();
         if(squareSelected)
             selectSquare(selectedSquare);
     }
@@ -253,6 +294,98 @@ function qBoard(){
                 break;
         }
     } 
+    function drawArrow(square1,square2,color){
+        var rank1 = rankAt(square1);
+        var file1 = fileAt(square1);
+        var rank2 = rankAt(square2);
+        var file2 = fileAt(square2);
+
+        var w = ctx.canvas.width;
+        var h = ctx.canvas.height;
+        var s = Math.min(w,h);
+        var t = s/8;
+
+        x1 = xAt(squareAt(rank1,file1));
+        y1 = yAt(squareAt(rank1,file1));
+
+        x2 = xAt(squareAt(rank2,file2));
+        y2 = yAt(squareAt(rank2,file2));
+
+        var cx1 = x1 +t/2;
+        var cy1 = y1 + t/2;
+
+        var cx2 = x2 +t/2;
+        var cy2 = y2 + t/2;
+
+        var dx = cx2 - cx1;
+        var dy = cy2 - cy1;
+
+        var d = Math.sqrt(dx*dx + dy*dy); //distance
+        var ang = Math.atan2(dy,dx);
+
+        var offset = d/4;
+
+        //Control points
+        var cx = (cx1 + cx2)/2 - offset * Math.sin(4*ang);
+        var cy = (cy1 + cy2)/2 - offset * Math.sin(4*ang);
+
+        //TODO: Try to get the arrow direction right
+
+        if(!color)
+            color = qboard.settings.theme.arrowColor;
+
+        ctx.save();
+
+        ctx.beginPath();
+        ctx.strokeStyle = color; 
+        ctx.lineWidth = qboard.settings.theme.arrowWidth;
+        ctx.lineJoin = "round";
+        ctx.lineCap = "round";
+        ctx.globalAlpha = qboard.settings.theme.arrowOpacity;
+        ctx.moveTo(cx1,cy1);
+        ctx.quadraticCurveTo(cx,cy,cx2,cy2);
+        ctx.stroke();
+
+        //Calculate angle for quadratic curve end
+        var ax = 2*(cx2-cx);
+        var ay = 2*(cy2-cy);
+
+        var aang = Math.atan2(ay,ax) + Math.PI/2;
+
+        drawArrowHead(cx2,cy2,aang - Math.PI/6);
+        drawArrowHead(cx2,cy2,aang + Math.PI/6);
+
+        ctx.restore();
+    }
+
+    function drawArrowHead(x,y,angle){
+        var arrowHeadSize = qboard.settings.theme.arrowHeadSize;
+        var x1 = x - Math.sin(angle)*arrowHeadSize;
+        var y1 = y + Math.cos(angle)*arrowHeadSize;
+
+        ctx.beginPath();
+        ctx.moveTo(x,y);
+        ctx.lineTo(x1,y1);
+        ctx.stroke();
+    }
+
+    function drawArrows(){
+       for(var key in qboard.arrows){
+
+            var arrow = qboard.arrows[key];
+
+            if(!arrow || !arrow[0])
+                break;
+
+            var start = sqN(arrow[0]);
+            var end = sqN(arrow[1]);
+            var color = arrow[2];
+
+            drawArrow(start,end,color);
+
+       }
+    }
+
     //Functions for calculating rank and file
     function rankAt(square){
         return Math.floor(square/8);
@@ -298,7 +431,6 @@ function qBoard(){
                 break;
         }
         return coord == 0?x:y; 
-
     }
     function screenPos(tx,ty){ 
         //Return square which was clicked
@@ -325,7 +457,6 @@ function qBoard(){
         var rank = Math.floor(y*8/s);
 
         return squareAt(rank,file);
-
     }
     function nSq(square){
         //Calculates a named square from a numbered square
