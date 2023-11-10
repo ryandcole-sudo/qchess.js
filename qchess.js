@@ -850,5 +850,260 @@ function qBoard(){
 //Constructor for Qchess (Quantum chess logic)
 function qChess(){
     var qchess = {};
+
+    var pgn = {};
+
+    var blacktomove = false;
+
+    //PGN Import mecahnism
+    pgn.read = function(text){
+        
+        var game = {
+            event:"",
+            site:"",
+            date:null, //new Date()
+            round:"",
+            white:"Player 1",
+            black:"player 2",
+            winner:"", //white or black //empty string means darw
+            result:"", //win, draw , unfinished
+        };
+        //Remove all carraige returns
+        text.replaceAll("\r",""); 
+        
+        //Split the text into lines
+        var lines = text.split("\n");
+
+        var section = 0; //First section, tag pair
+
+        for(var i = 0; i <= lines.length - 1; i++){
+            var line = lines[i];
+
+            if(line.length >= 254) //plus \n
+                console.log("Warning: PGN lines should not exceed 255 characters");
+
+            if(line[0] == "%"){
+                pgnEscape(line);
+                break;
+            }
+
+            var tokens = pgnTokenize(line);
+
+            switch(section){
+                case 0: //Tag pair section
+                    readTagPairs(tokens);
+                    break;
+                case 1:
+                default:
+            }
+            
+        }
+
+
+        function readTagPairs(tokens){
+            
+            console.log(tokens);
+
+            //Tag pairs have 4 tokens
+
+            var leftBracket = tokens[0];
+            var rightBracket = tokens[3];
+
+            var tagName = tokens[1];
+            var string = tokens[2];
+
+            if(leftBracket != "["){
+                section ++;
+                return;
+            }
+
+            if(rightBracket != "]"){
+                console.warn("Invalid PGN, Right Bracket Expected");
+                return -1;
+            }
+
+            if(string.charAt(0) != "\""){
+               console.warn("Invalid PGN, expected string token"); 
+               return -1;
+            }
+
+            var value = string.replaceAll("\"","");
+
+
+            switch(tagName){
+                case "Event":
+                    game.event = value;
+                    break;
+                case "Site":
+                    game.site = value;
+                    break;
+                case "Date":
+                    var date = value.replaceAll(".","-");
+                    game.date = new Date(date); 
+                    break;
+                case "Round":
+                    game.round = value;
+                    break;
+                case "White":
+                    game.white = value;
+                    break;
+                case "Black":
+                    game.black = value;
+                    break;
+                case "Result":
+                    if(value == "0-1"){
+                        game.winner = "black";
+                        game.result = "win";
+                    }
+                    if(value == "1-0"){
+                        game.winner = "white";
+                        game.result = "win";
+                    }
+                    if(value == "1/2-1/2"){
+                        game.winner = "";
+                        game.result = "draw";
+                    }
+                    if(value == "*"){
+                        game.winner = "";
+                        game.result = "unfinished";
+                    }
+                    break;
+            }
+        }
+        return game;
+
+    };
+        console.pgn = pgn.read;
+        //debugger;
+
+        function parseMoveText(tokens){
+            
+            for(var i=0; i<tokens.length;i++){
+                
+                var token = tokens[i];
+                if(!token){
+                    console.log("Move Text, parse token missing");
+                    break;
+                }
+                    
+                var numberToken = /^\d+/;
+
+                if(token == ".")
+                    continue;
+
+                //Ignore move numbers, for importing
+                if(numberToken.test(token))
+                    continue;
+                if(token == ")"){
+                    //TODO: Handle Variations (RAV)
+                }
+                if(token == "("){
+                    //TODO: Handle variations (RAV)
+                }
+
+                if(token.charAt(0) == "$"){
+                    //TODO: handle Numeric Annotaions (NAG)
+                }
+
+                SANparse(token);
+            }
+        }
+
+        var moveInfo = {};
+
+        function initMoveInfo(){
+            moveInfo = {
+                //Basic Info
+                piece:"",
+                fromFile:"",
+                fromRank:"",
+                x:"",
+                toSquare:"",
+                equals:"",
+                checkMark:"",
+                annotation:"",
+                castling : "",
+                
+                isValid:function(){
+                    //TODO: Check if move is valid
+                    return false;
+                },
+                isCapture:function(){
+                    return this.x == "x";
+                },
+                isCheck:function(){
+                    return this.checkMark == "+";
+                }
+            };
+        }
+
+        //Standard algebraic notation
+        function SANparse(text){
+            
+            var sanMove = /([PNBRQK]?)([a-h]?)([1-8]?)(x?)([a-h][1-8])(=?[NBRQK]?)([#+]?)([!?]?)([!?]?)/;
+
+            initMoveInfo();
+
+            if(text == "O-O"){
+                //King side castling
+                moveInfo.castling = "K"; //King side castling
+            }
+
+            if(text == "O-O-O"){
+                //Queen side castling
+                moveInfo.castling = "false";
+            }
+            var moves = sanMove.exec(text);
+
+            moveInfo.piece = moves[1];
+            moveInfo.fromFile = moves[2];
+            moveInfo.toFile = moves[3];
+            moveInfo.x = moves[4];
+            moveInfo.toSquare = moves[5];
+            moveInfo.equals = moves[6];
+            moveInfo.checkMark = moves[7];
+            moveInfo.annotation = moves[8] + moves[9];
+        }
+
+        //Implement tokenizer
+        function pgnTokenize(text){
+            //returns an array of tokens
+
+            text = text.trim();
+
+            var qt = text.split("\"");
+
+            var tokens = [];
+
+            for(var i = 0; i <= qt.length - 1; i ++){
+                var txt = qt[i];
+                txt = txt.trim();
+                if(i%2 == 1){
+                    //Inside quoutes
+                    tokens.push("\""+ txt + "\"");
+                }else{
+                    //Outside quotes
+
+                    //All . * [ ] ( ) < > are tokens
+                    txt = txt.replace(/(\.|\*|\[|\]|\(|\))/g, " $1 ");
+
+                    //Numeric annotation glyph
+                    txt = txt.replace(/($\d+)/g, " $1 ");
+
+                    txt = txt.trim();
+                    var tks = txt.split(/\s+/); //whitespace
+                    tokens.push.apply(tokens,tks);
+                }
+            }
+            return tokens;
+        }
+
+        //Implement escape mechanism
+        function pgnEscape(text){
+            
+        }
+    qchess.pgn = pgn;
+    qchess.board = {}; //qboard object
+      
     return qchess;
 }
